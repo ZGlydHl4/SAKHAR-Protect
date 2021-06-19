@@ -1,2 +1,4 @@
 .vscode
 /venv
+/VxAPI
+/__pycache__
