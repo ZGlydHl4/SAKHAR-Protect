@@ -38,13 +38,34 @@ def quick_scan_file():
     return result
 
 
+@app.route("/sandbox-url", methods=['POST'])
+def sandbox_url():
+    url = request.form['url']
+    cmd_arguments = " submit_url_for_analysis --no-share-third-party 1 --allow-community-access 0 " + \
+        url + " 120"
+    return executeSandbox(cmd_arguments)
+
+
 def executeCommand(cmd_arguments):
     cmd_base = "python ./VxAPI/vxapi.py"
     cmd = cmd_base + cmd_arguments
     result = subprocess.run(cmd, capture_output=True, text=True)
     stdout = result.stdout
     stderr = result.stderr
+    print(stdout)
+    print(stderr)
     return getScanResult(stdout)
+
+
+def executeSandbox(cmd_arguments):
+    cmd_base = "python ./VxAPI/vxapi.py"
+    cmd = cmd_base + cmd_arguments
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    stdout = result.stdout
+    stderr = result.stderr
+    print(stdout)
+    print(stderr)
+    return ""
 
 
 def getScanResult(scan_report):
