@@ -18,28 +18,7 @@ def quick_scan_url():
     url = request.form['url']
     cmd_arguments = " scan_url_for_analysis " + ARGUMENTS + " " + \
         url + " scan_urlscanio"
-    return executeCommand(cmd_arguments)
-
-
-@app.route("/quick-scan-url-file", methods=['POST'])
-def quick_scan_url_file():
-    url_file = request.form['url_file']
-    cmd_arguments = " scan_url_to_file " + ARGUMENTS + " " + \
-        url_file + " scan_metadefender"
-    return executeCommand(cmd_arguments)
-
-
-@app.route("/quick-scan-file", methods=['POST'])
-def quick_scan_file():
-    f = request.files['file']
-    filename = secure_filename(f.filename)
-    f.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-    cmd_arguments = " scan_file " + ARGUMENTS + " " + \
-        filename + " scan_metadefender"
-    print(filename)
-    result = executeCommand(cmd_arguments)
-    os.remove("./uploads/" + filename)
-    return result
+    return executeScan(cmd_arguments)
 
 
 @app.route("/sandbox-url", methods=['POST'])
@@ -50,6 +29,14 @@ def sandbox_url():
     return executeSandbox(cmd_arguments)
 
 
+@app.route("/quick-scan-url-file", methods=['POST'])
+def quick_scan_url_file():
+    url_file = request.form['url_file']
+    cmd_arguments = " scan_url_to_file " + ARGUMENTS + " " + \
+        url_file + " scan_metadefender"
+    return executeScan(cmd_arguments)
+
+
 @app.route("/sandbox-url-file", methods=['POST'])
 def sandbox_url_file():
     url_file = request.form['url-file']
@@ -58,25 +45,46 @@ def sandbox_url_file():
     return executeSandbox(cmd_arguments)
 
 
+@app.route("/quick-scan-file", methods=['POST'])
+def quick_scan_file():
+    f = request.files['file']
+    filename = secure_filename(f.filename)
+    path = UPLOAD_FOLDER + "/" + filename
+    f.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    cmd_arguments = " scan_file " + ARGUMENTS + " " + \
+        path + " scan_metadefender"
+    result = executeScan(cmd_arguments)
+    os.remove("./uploads/" + filename)
+    return result
+
+
 @app.route("/sandbox-file", methods=['POST'])
 def sandbox_file():
     f = request.files['file']
     filename = secure_filename(f.filename)
+    path = UPLOAD_FOLDER + "/" + filename
     f.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
     cmd_arguments = " submit_file " + ARGUMENTS + " " + \
-        filename + " 120"
+        path + " 120"
     verdict = executeSandbox(cmd_arguments)
     os.remove("./uploads/" + filename)
     return verdict
 
 
-def executeCommand(cmd_arguments):
+def executeScan(cmd_arguments):
     cmd = CMD_BASE + cmd_arguments
     result = subprocess.run(cmd, capture_output=True, text=True)
     stdout = result.stdout
     stderr = result.stderr
     print(stdout)
     print(stderr)
+    scan_id = json.loads(stdout)["id"]
+    job_done = False
+    timeout = 0
+    while (job_done is False and timeout < 10):
+        time.sleep(2)
+        if (getScanResult(scan_id)):
+
     return getScanResult(stdout)
 
 
@@ -114,13 +122,17 @@ def getSandboxSummary(job_id):
     result = subprocess.run(cmd, capture_output=True, text=True)
     stdout = result.stdout
     stderr = result.stderr
-    verdict = json.loads(stdout)["state"]
+    verdict = json.loads(stdout)["verdict"]
     return verdict
 
 
-def getScanResult(scan_report):
-    json_report = json.loads(scan_report)
-    json_report = json_report["scanners"]
-    json_report = json_report[0]
-    json_report = json_report["status"]
-    return json_report
+def getScanResult(scan_id):
+    cmd = CMD_BASE + " scan_get_result " + scan_id
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    stdout = result.stdout
+    stderr = result.stderr
+    status = json.loads(stdout)
+    status = status["scanners"]
+    status = status[0]
+    status = status["status"]
+    return status
